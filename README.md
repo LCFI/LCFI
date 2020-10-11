@@ -9,7 +9,7 @@ LCFI is modified based on [LLFI](https://github.com/DependableSystemsLab/LLFI) [
 
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 
-(C) 2020 by Washington State University and University of Iowa. See [COPYRIGHT](https://github.com/hipdac-lab/LCFI/blob/master/LICENSE.txt) in top-level directory.
+(C) 2020 by Washington State University and University of Iowa. See [COPYRIGHT](https://github.com/LCFI/LCFI/blob/master/LICENSE.txt) in top-level directory.
 
 * Developers: Baodi Shan (lwshanbd@gmail.com)
 * Supervisors: Dingwen Tao (dingwen.tao@wsu.edu), Guanpeng Li (guanpeng-li@uiowa.edu)
@@ -196,7 +196,7 @@ Finally, you need to go back to <LCFI_SRC_ROOT> and recompile it.
 
 
 
-### Add a new fault
+### Add a new fault model
 
  Open the <LCFI_SRC_ROOT>/runtime_lib/_SoftwareFaultInjectors.cpp, as you can see, a standard fault setting is like this:
    
