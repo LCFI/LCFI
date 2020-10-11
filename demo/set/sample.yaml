@@ -1,0 +1,23 @@
+compileOption:
+  instSelMethod:
+  - funcname:
+      include:
+       - process
+  includeInjectionTrace:
+  - forward
+  - backward
+  regSelMethod: regloc
+  regloc: dstreg
+  tracingPropagation: true
+  tracingPropagationOption:
+    maxTrace: 250
+    debugTrace: false
+    generateCDFG: true
+runOption:
+- run:
+    numOfRuns: 30
+    num_of_data: 2
+    fi_type: uniform5(L3FI)
+    fi_index: 
+    - 14
+    - 333

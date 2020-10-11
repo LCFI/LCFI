@@ -1,0 +1,12 @@
+varible_num: 2
+option:
+  - 
+    function_name: process
+    varible_name: aaa
+    varible_init: true
+    varible_location: 1
+  - 
+    function_name: process
+    varible_name: n
+    varible_init: false
+    varible_location: 3

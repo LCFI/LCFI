@@ -1,0 +1,306 @@
+#! /usr/bin/env python3
+
+"""
+
+Usage: %(prog)s OPTIONS
+List of options:
+-LLVM_DST_ROOT <LLVM CMake build root dir>:
+    Make sure you build LLVM with CMake and pass build root directory here
+-LLVM_SRC_ROOT <LLVM source root dir>
+-LLFI_BUILD_ROOT <path where you want to build LLFI>
+-LLVM_GXX_BIN_DIR <llvm-gcc/g++'s parent dir> (optional):
+    You don't need to set it if it is in system path
+-JAVA_HOME_DIR <java home directory for oracle jdk 7 or higher> (optional):
+    You don't need to set it if your default jdk is oracle jdk 7 or higher and in system path
+
+
+--help(-h): show help information
+--no_gui: Add this option if you do not want GUI.
+--runTests: Add this option if you want to run all regression tests after building LLFI.
+"""
+
+import sys
+import os
+import re
+import getopt
+import distutils.core
+import signal
+import subprocess
+import shutil
+import platform
+import stat
+
+prog = os.path.basename(sys.argv[0])
+required_configs = {
+  "LLVM_DST_ROOT": "",
+  "LLVM_SRC_ROOT": "",
+  "LLFI_BUILD_ROOT": ""
+}
+optional_configs = {
+  "LLVM_GXX_BIN_DIR": "",
+  "JAVA_HOME_DIR": "",
+}
+
+gui_build_flag = False
+run_tests_flag = False
+
+def usage(msg = None):
+  retval = 0
+  if msg is not None:
+    retval = 1
+    msg = "ERROR: " + msg
+    print(msg, file=sys.stderr)
+  print(__doc__ % globals(), file=sys.stderr)
+  sys.exit(retval)
+
+def cmd_exists(cmd):
+    return subprocess.call("type " + cmd, shell=True, 
+        stdout=subprocess.PIPE, stderr=subprocess.PIPE) == 0
+
+def parseArgs(args):
+  global required_configs, optional_configs, gui_build_flag, run_tests_flag
+  
+  argid = 0
+  while argid < len(args):
+    arg = args[argid]
+    if arg.startswith("-"):
+      if arg[1:] in required_configs:
+        argid += 1
+        required_configs[arg[1:]] = args[argid]
+      elif arg[1:] in optional_configs:
+        argid += 1
+        optional_configs[arg[1:]] = args[argid]
+      elif arg == "--help" or arg == "-h":
+        usage()
+      elif arg == "--no_gui":
+        gui_build_flag = False
+      elif arg == "--runTests":
+        run_tests_flag = True
+      else:
+        usage("Invalid argument: " + arg)
+    else:
+      usage("Invalid argument: " + arg)
+    argid += 1
+  
+  missing_required_configs = []
+  for config in required_configs:
+    if required_configs[config] == "":
+      missing_required_configs.append("-" + config)
+  if len(missing_required_configs) != 0:
+    errmsg = "The following arguments are required for building LLFI: \n"
+    for arg in missing_required_configs:
+      errmsg += "\t" + arg + "\n"
+    errmsg = errmsg.rstrip()
+    usage(errmsg)
+
+
+def checkEnvironment():
+# system
+  if sys.platform != "linux" and sys.platform != "linux2" and sys.platform != "darwin":
+    print("ERROR: LLFI does not support your platform " + sys.platform + "\n", file=sys.stderr)
+    sys.exit(1)
+
+# prerequisites
+  has_error = False
+  if not (os.path.exists(required_configs['LLVM_DST_ROOT']) and
+          os.path.exists(required_configs['LLVM_SRC_ROOT']) and
+          os.path.exists(os.path.join(required_configs['LLVM_DST_ROOT'], "bin"))):
+    print("ERROR: The specified -LLVM_DST_ROOT or -LLVM_SRC_ROOT is invalid. Make sure -LLVM_DST_ROOT is built with CMake. See how to build LLVM with CMake on http://llvm.org\n", file=sys.stderr)
+    has_error = True
+
+  if not os.path.exists(os.path.join(required_configs['LLVM_DST_ROOT'], "bin/opt")):
+    print("ERROR: The specified -LLVM_DST_ROOT is invalid. Make sure -LLVM_DST_ROOT is built with CMake, and make sure you run 'make' after 'cmake' when building llvm.", file=sys.stderr)
+    has_error = True
+
+  if os.path.exists(required_configs['LLFI_BUILD_ROOT']):
+    print("ERROR: LLFI build directory already exists!\n", file=sys.stderr)
+    has_error = True
+
+  llvmgcc = "clang"
+  if optional_configs['LLVM_GXX_BIN_DIR'] != "":
+    llvmgcc = os.path.join(optional_configs['LLVM_GXX_BIN_DIR'], llvmgcc)
+  if not cmd_exists(llvmgcc):
+    print(("ERROR: Cannot find llvm-gcc. Make sure you have installed "
+                          "it, and make it available to LLFI by either adding it to "
+                          "system path or passing its directory to -LLVM_GXX_BIN_DIR\n"), file=sys.stderr)
+    has_error = True
+
+  if not cmd_exists("cmake"):
+    print("ERROR: You need to install CMake before build LLFI.\n", file=sys.stderr)
+    has_error = True
+  elif not os.path.exists(os.path.join(required_configs['LLVM_DST_ROOT'], 
+                                       "share/llvm/cmake")):
+    print(("ERROR: You need to pass LLVM CMake build root "
+                          "directory to -LLVM_DST_ROOT. See how to build LLVM "
+                          "with CMake on http://llvm.org\n"), file=sys.stderr)
+    has_error = True
+
+  try:
+    import yaml
+  except:
+    print(("ERROR: You need to install Python Yaml module "
+                          "before building LLFI.\n"), file=sys.stderr)
+    has_error = True
+
+  if has_error:
+    print("Please fix the above error(s) before building LLFI.", file=sys.stderr)
+    sys.exit(1)
+
+
+
+def build():
+  global optional_configs, gui_build_flag
+  # create config files
+  script_path = os.path.realpath(os.path.dirname(__file__))
+  llvm_paths_cmake = os.path.join(script_path, "config/llvm_paths.cmake")
+  llvm_paths_py = os.path.join(script_path, "config/llvm_paths.py")
+  llvm_paths_make = os.path.join(script_path, "config/llvm_paths.make")
+  java_paths_cmake = os.path.join(script_path, "config/java_paths.cmake")
+  java_paths_py = os.path.join(script_path, "config/java_paths.py")
+  
+  # build all default software failures
+  fidl_path =  os.path.join(script_path, 'tools/FIDL/FIDL-Algorithm.py')
+  execlist = [fidl_path, '-a', 'default']
+  print('-- Generating default software failures with %s...' % (fidl_path))
+  p = subprocess.call(execlist, stdout = open(os.devnull, 'wb'))
+  if p != 0:
+    print('-- Failed!')
+    sys.exit(p)
+  else:
+    print('-- Success!')
+  
+  # write cmake config file for llvm paths
+  cmake_File = open(llvm_paths_cmake, "w")
+  LLVM_DST_ROOT = os.path.realpath(required_configs['LLVM_DST_ROOT'])
+  LLVM_SRC_ROOT = os.path.realpath(required_configs['LLVM_SRC_ROOT'])
+  if optional_configs['LLVM_GXX_BIN_DIR'] != "":
+    LLVM_GXX_BIN_DIR = os.path.realpath(optional_configs['LLVM_GXX_BIN_DIR'])
+  else:
+    LLVM_GXX_BIN_DIR = ""
+
+  cmake_File.write("set(LLVM_DST_ROOT " + LLVM_DST_ROOT + ")\n")
+  cmake_File.write("set(LLVM_SRC_ROOT " + LLVM_SRC_ROOT + ")\n")
+  cmake_File.close()
+
+  if gui_build_flag == True:
+    # write cmake config file for java paths
+    cmake_File = open(java_paths_cmake, "w")
+    if optional_configs['JAVA_HOME_DIR'] == '':
+      try:
+        ORACLE_JAVA_HOME = \
+          str(subprocess.check_output('readlink -f /usr/bin/javac | sed \"s:/bin/javac::\"',\
+          shell=True, universal_newlines=True
+          )).strip()
+      except:
+        usage("ORACLE_JAVA_HOME not set and not found in system path!")
+        sys.exit(1)
+    else:
+      ORACLE_JAVA_HOME = optional_configs['JAVA_HOME_DIR']
+    print(ORACLE_JAVA_HOME)
+    if not os.path.isfile(os.path.join(ORACLE_JAVA_HOME, './bin/javac')):
+      usage("Invalid ORACLE_JAVA_HOME: bin/javac not found!")
+      sys.exit(1)
+  
+    if not os.path.isfile(os.path.join(ORACLE_JAVA_HOME, './bin/java')):
+      usage("Invalid ORACLE_JAVA_HOME: bin/java not found!")
+      sys.exit(1)
+  
+    if not os.path.isfile(os.path.join(ORACLE_JAVA_HOME, './jre/lib/jfxrt.jar')) \
+    and not os.path.isfile(os.path.join(ORACLE_JAVA_HOME, './jre/lib/ext/jfxrt.jar')): #java8
+      usage("Invalid ORACLE_JAVA_HOME: jre/lib/jfxrt.jar or jre/lib/ext/jfxrt.jar not found! \
+      Please use Oracle JDK 7 or higher version.")
+      sys.exit(1)
+  
+    CMAKE_JAVA_INCLUDE_PATH = \
+      str(os.path.join(ORACLE_JAVA_HOME, './jre/lib'))+'/*'+\
+      ':'+\
+      str(os.path.join(ORACLE_JAVA_HOME, './jre/lib/ext'))+'/*'+\
+      ':'+\
+      str(os.path.join(script_path, './gui/application/lib/*'))
+  
+    cmake_File.write("set(JAVA_HOME " + ORACLE_JAVA_HOME + ")\n")
+    cmake_File.write("set(JAVAC_EXECUTABLE " + ORACLE_JAVA_HOME + '/bin/javac' + ")\n")
+    cmake_File.write("set(JAVA_EXECUTABLE " + ORACLE_JAVA_HOME + '/bin/java' + ")\n")
+    cmake_File.write("set(CMAKE_JAVA_INCLUDE_PATH " + CMAKE_JAVA_INCLUDE_PATH + ")\n")
+    cmake_File.close()
+
+  # write python config file for llvm paths
+  py_File = open(llvm_paths_py, "w")
+  py_File.write("LLVM_DST_ROOT = " + '"' + LLVM_DST_ROOT + '"\n')
+  py_File.write("LLVM_SRC_ROOT = " + '"' + LLVM_SRC_ROOT + '"\n')
+  py_File.write("LLVM_GXX_BIN_DIR = " + '"' + LLVM_GXX_BIN_DIR + '"\n')
+  py_File.close()
+
+  if gui_build_flag == True:
+    # write python config file for java paths
+    py_File = open(java_paths_py, "w")
+    py_File.write("JAVA_HOME = " + '"' + ORACLE_JAVA_HOME + '"\n')
+    py_File.write("JAVAC_EXECUTABLE = " + '"' + ORACLE_JAVA_HOME + '/bin/javac' + '"\n')
+    py_File.write("JAVA_EXECUTABLE = " + '"' + ORACLE_JAVA_HOME + '/bin/java' + '"\n')
+    py_File.write("CMAKE_JAVA_INCLUDE_PATH = " + '"' + CMAKE_JAVA_INCLUDE_PATH + '"\n')
+    py_File.close()
+
+  # write unix make config file for llvm paths
+  make_File = open(llvm_paths_make, 'w')
+  make_File.write("LLVM_DST_ROOT = " + LLVM_DST_ROOT + '\n')
+  make_File.write("LLVM_SRC_ROOT = " + LLVM_SRC_ROOT + '\n')
+  make_File.write("LLVM_GXX_BIN_DIR = " + LLVM_GXX_BIN_DIR + '\n')
+  make_File.close()
+
+
+  # build
+  LLFI_BUILD_DIR = os.path.realpath(required_configs['LLFI_BUILD_ROOT'])
+  os.makedirs(LLFI_BUILD_DIR)
+  os.chdir(LLFI_BUILD_DIR)
+  config_command = ["cmake"]
+  if gui_build_flag == False:
+    config_command.append("-DNO_GUI=ON")
+  config_command.append(script_path)
+  p = subprocess.call(config_command)
+  if p != 0:
+    sys.exit(p)
+
+  p = subprocess.call("make")
+  if p != 0:
+    sys.exit(p)
+  os.chdir(script_path)
+
+
+def runTests():
+  print("Running all regression tests:\n")
+  LLFI_BUILD_DIR = os.path.realpath(required_configs['LLFI_BUILD_ROOT'])
+  subprocess.call(["python3", LLFI_BUILD_DIR + "/test_suite/SCRIPTS/llfi_test", "--all", "--threads", "2", "--verbose"])
+
+
+def configZGRV():
+  # config zgrviewer
+  script_path = os.path.realpath(os.path.dirname(__file__))
+  zgrviewer_run_script = os.path.realpath(os.path.join(script_path, 'tools', 'zgrviewer', 'run.sh'))
+  new_script = os.path.realpath(os.path.join(script_path, 'tools', 'zgrviewer', 'llfi_run.sh'))
+  zgrviewer_dir = os.path.dirname(zgrviewer_run_script)
+  content = []
+  with open(zgrviewer_run_script, 'r') as old:
+    content = old.readlines()
+  for i, line in enumerate(content):
+    if line.startswith('ZGRV_HOME='):
+      content[i] = 'ZGRV_HOME='+zgrviewer_dir
+      break
+  with open(new_script, 'w') as new:
+    for line in content:
+      new.write(line)
+  os.chmod(new_script, stat.S_IRUSR|stat.S_IWUSR|stat.S_IXUSR)
+
+
+def main(args):
+  global run_tests_flag
+
+  parseArgs(args)
+  #configZGRV()
+  checkEnvironment()
+  build()
+  if run_tests_flag:
+    runTests()
+
+
+if __name__=="__main__":
+  main(sys.argv[1:])

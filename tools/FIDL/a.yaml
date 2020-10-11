@@ -1,0 +1,14 @@
+Failure_Class: LCFI
+Failure_Mode: Nor5
+
+New_Failure_Mode:
+    Trigger: 
+      call:
+        [all]
+    Target:
+      src: 
+        all: [0]
+    Action:
+        Perturb: NormalDistributionByRate
+        value: 1
+
