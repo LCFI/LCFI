@@ -3,7 +3,7 @@ LCFI
 
 Lossy compression has been widely used in HPC applications to significantly reduce the data movement and memory overheads. However, the impact of compression errors in HPC programs is not clear yet to many HPC programs, and current lossy compression methods have not been optimized for minimizing this impact. 
 
-LCFI is a **L**ossy **C**ompression **F**ault **I**njection tool based on LLVM that injects faults into the LLVM IR of the application source code. Users can use LCFI to inject lossy compression errors to any variable in an HPC program with different error distributions and error bounds. In this way, you can use LCFI to select the optimal lossy compressor and compression configuration for any HPC program that needs to use lossy compression. Moreover, lossy compression developers can use LCFI to custom the error distribution and compression scheme, which can help them design a better lossy compressor with higher data fidelity. 
+LCFI is a **L**ossy **C**ompression **F**ault **I**njection tool based on LLVM that injects faults into the LLVM IR of the application source code. Users can use LCFI to inject lossy compression errors to any variable in an HPC program with different error distributions and error bounds. In this way, you can use LCFI to select the optimal lossy compressor and compression configuration for any HPC program that needs to use lossy compression. Moreover, lossy compression developers can use LCFI to customize the error distribution and compression scheme, which can help them design a better lossy compressor with higher data fidelity. 
 
 LCFI is modified based on [LLFI](https://github.com/DependableSystemsLab/LLFI) [1] developed by the University of British Columbia. 
 
@@ -86,7 +86,9 @@ Change to your project directory. Build a single IR file with the LCFI tool Gene
 
 ```
 <LCFI_BUILD_ROOT>/tools/GenerateMakefile --readable --all
+```
 
+```
 make
 ```
 
@@ -97,7 +99,7 @@ Instrument <your_program> with calls to LLFI libraries and create executables un
 ```
 
 
-Then, set the `set.yaml` to set the variable you want to inject. If you variable is in a for-loop, you can also set which loop number you want to inject. 
+Then, set the `set.yaml` to set the variable you want to inject. If your variable is in a for-loop, you can also set which loop number you want to inject. 
 > Tips: Only parametric variable is **non-init**, global and local variables' *variable_init* are all **true**.
 
 ```yaml
@@ -144,7 +146,7 @@ in the *llfi* directory.
 
 ## Custom Fault
 
-In LCFI, you can custom yourself own falut by FIDL tool and you can also set a specific value with faults which we have provided you with.
+In LCFI, you can customize your own falut using the FIDL tool or you can also set a specific value with faults which we have provided you with.
 
 
 ### Set your value used our injector
@@ -168,7 +170,7 @@ New_Failure_Mode:
 
 ```
 
-We now have 8 injectors corresponding to 8 different situations, detail of them as follows:
+We now have 8 injectors corresponding to 8 different situations:
 
 |          InjectorName           | Type of Data |
 | --------------------------------| ------------ |
@@ -188,7 +190,7 @@ Run the `FIDL-algorithm.py`
 python3 FIDL-algorithm.py -a FIDL.yaml
 ```
 
-Finally, you need to go back to <LCFI_SRC_ROOT> and recompile it.
+Finally, go back to <LCFI_SRC_ROOT> and recompile it.
 
 ```
 ./compile.sh
@@ -234,14 +236,14 @@ class UniformDistribution: public SoftwareFaultInjector {
 ```
 If you want to write your own fault, you need to rewrite the injectFault function. 
 
-In this function, you need to convert the buf val `char` to the `type of data` you want to use. In most situations, you need  `double` or `float` type. 
+In this function, convert the buf val `char` to the `type of data` you want to use. In most situations, you need  `double` or `float` type. 
 ```
 <Data Type>* newbuf = (<Data Type>*) buf;
 ```
 
-Then, you can edit the content of the function. **The value of `newbuf` is the finally changed value.**
+Then, edit the content of the function. **The value of `newbuf` is the finally changed value.**
 
-Next, you need to change the `FIDL-algorithm.py` in  <LCFI_SRC_ROOT>/tools/FIDL/ . Please copy this code after line 574:
+Next, change the `FIDL-algorithm.py` in  <LCFI_SRC_ROOT>/tools/FIDL/ . Please copy this code after line 574:
 
 ```python
 elif '<Your_Injector_Name>' in perturb:
@@ -275,7 +277,7 @@ Run the `FIDL-algorithm.py`
 python3 FIDL-algorithm.py -a FIDL.yaml
 ```
 
-Finally, you need to go back to <LCFI_SRC_ROOT> and recompile it.
+Finally, go back to <LCFI_SRC_ROOT> and recompile it.
 
 ```
 ./compile.sh
