@@ -32,7 +32,6 @@ add_llvm_loadable_module(llfi-passes
   software_failures/_SoftwareFaultRegSelectors.cpp
   
   #FIDL - DO NOT MODIFY UNTIL '#END'
-  software_failures/_LCFI_Nor5Selector.cpp
   software_failures/_Timing_RaceConditionSelector.cpp
   software_failures/_Res_UnderAccumulatorSelector.cpp
   software_failures/_Res_ThreadKillerSelector.cpp

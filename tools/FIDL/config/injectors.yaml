@@ -1,8 +1,5 @@
 DO_NOT_MODIFY: DO_NOT_MODIFY
-custom:
-  Nor5(LCFI):
-    code: static RegisterFaultInjector _LCFI_Nor5FIDLInjector("Nor5(LCFI)", new NormalDistributionByRate(1));
-    selectorfilename: _LCFI_Nor5Selector.cpp
+custom: {}
 default:
   BufferOverflow(API):
     code: static RegisterFaultInjector _API_BufferOverflowFIDLInjector("BufferOverflow(API)",

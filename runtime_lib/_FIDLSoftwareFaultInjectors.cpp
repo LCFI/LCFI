@@ -117,6 +117,3 @@ static RegisterFaultInjector _Data_WrongSourceFIDLInjector("WrongSource(Data)", 
  * CUSTOM INJECTORS *
  ********************/
 
-// Nor5(LCFI)
-static RegisterFaultInjector _LCFI_Nor5FIDLInjector("Nor5(LCFI)", new NormalDistributionByRate(1));
-
