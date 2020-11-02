@@ -58,27 +58,7 @@ class SleepInjector: public SoftwareFaultInjector {
 
 static RegisterFaultInjector DA("HighFrequentEvent(Timing)", new SleepInjector());
 
-class wctm: public SoftwareFaultInjector {
-        public:
-        virtual void injectFault(long llfi_index, unsigned size, unsigned fi_bit,char *buf){
-                if(is_replace == false){
-                        int* newbuf = (int*) buf;
-                        *newbuf = *newbuf + add_val;
-                }
-                else{
-                        int* newbuf = (int*) buf;
-                        *newbuf = rep_val;
-                }
-                return;
-        }
 
-        wctm(int val, bool replace):add_val(val), rep_val(val), is_replace(replace){};
-
-        private:
-        int add_val;
-        int rep_val;
-        bool is_replace;
-};
 
 #include <sstream>
 #include <string>
@@ -121,7 +101,8 @@ class floatNormalDistributionByRate: public SoftwareFaultInjector {
 		float tmp=*newbuf;
 		float add_val;
 		add_val=rate*tmp;
-		*newbuf=GaussRand(*newbuf,add_val/1.96);
+		float dStandardDeviation = sqrt(add_val/1.96);
+		*newbuf=GaussRand(*newbuf,dStandardDeviation);
 		if(*newbuf-tmp>add_val)
 			*newbuf=tmp+add_val;
 		if(*newbuf<tmp-add_val)
@@ -173,7 +154,8 @@ class floatNormalDistribution: public SoftwareFaultInjector {
 	virtual void injectFault(long llfi_index, unsigned size, unsigned fi_bit,char *buf){
 		float* newbuf = (float*) buf;
 		float tmp=*newbuf;
-		*newbuf=GaussRand(*newbuf,add_val/1.96);
+		float dStandardDeviation = sqrt(add_val/1.96);
+		*newbuf=GaussRand(*newbuf,dStandardDeviation);
 		if(*newbuf-tmp>add_val)
 			*newbuf=tmp+add_val;
 		if(*newbuf<tmp-add_val)
@@ -296,7 +278,8 @@ class NormalDistributionByRate: public SoftwareFaultInjector {
 		double tmp=*newbuf;
 		double add_val;
 		add_val=rate*tmp;
-		*newbuf=GaussRand(*newbuf,add_val/1.96);
+		double dStandardDeviation = sqrt(add_val/1.96);
+		*newbuf=GaussRand(*newbuf,dStandardDeviation);
 		if(*newbuf-tmp>add_val)
 			*newbuf=tmp+add_val;
 		if(*newbuf<tmp-add_val)
@@ -348,7 +331,8 @@ class NormalDistribution: public SoftwareFaultInjector {
 	virtual void injectFault(long llfi_index, unsigned size, unsigned fi_bit,char *buf){
 		double* newbuf = (double*) buf;
 		double tmp=*newbuf;
-		*newbuf=GaussRand(*newbuf,add_val/1.96);
+		double dStandardDeviation = sqrt(add_val/1.96);
+		*newbuf=GaussRand(*newbuf,dStandardDeviation);
 		if(*newbuf-tmp>add_val)
 			*newbuf=tmp+add_val;
 		if(*newbuf<tmp-add_val)
